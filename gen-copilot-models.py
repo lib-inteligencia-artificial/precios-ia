@@ -267,9 +267,13 @@ def write_html(rows: list[dict], path: str) -> None:
   .muted { color: #8b949e; }
   a { color: #58a6ff; text-decoration: none; }
   a:hover { text-decoration: underline; }
+  .back-link { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px; font-size: 13px;
+               color: #8b949e; padding: 5px 12px; border: 1px solid #30363d; border-radius: 6px; background: #161b22; }
+  .back-link:hover { border-color: #58a6ff; color: #58a6ff; text-decoration: none; }
 </style>
 </head>
 <body>
+<a class="back-link" href="./index.html">&#8592; Volver al índice</a>
 <h1>
   <svg height="28" width="28" viewBox="0 0 16 16" fill="currentColor" style="vertical-align: middle;">
     <path d="M7.998 15.035c-4.562 0-7.873-2.914-7.998-3.749V9.338c.085-.628.677-1.686 1.588-2.065.013-.07.024-.143.036-.218.029-.183.06-.384.126-.612-.201-.508-.254-1.084-.254-1.656 0-.87.128-1.769.693-2.484.579-.733 1.494-1.124 2.724-1.261 1.206-.134 2.262.034 2.944.765.05.053.096.108.139.165.044-.057.094-.112.143-.165.682-.731 1.738-.899 2.944-.765 1.23.137 2.145.528 2.724 1.261.566.715.693 1.614.693 2.484 0 .572-.053 1.148-.254 1.656.066.228.098.429.126.612.012.076.024.148.037.218.924.385 1.522 1.471 1.591 2.095v1.872c0 .766-3.351 3.795-8.002 3.795Z"></path>

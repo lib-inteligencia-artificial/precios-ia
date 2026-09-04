@@ -242,9 +242,13 @@ def write_html(rows: list[dict], path: str) -> None:
   .muted { color: #8b949e; }
   a { color: #58a6ff; text-decoration: none; }
   a:hover { text-decoration: underline; }
+  .back-link { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px; font-size: 13px;
+               color: #8b949e; padding: 5px 12px; border: 1px solid #30363d; border-radius: 6px; background: #161b22; }
+  .back-link:hover { border-color: #58a6ff; color: #58a6ff; text-decoration: none; }
 </style>
 </head>
 <body>
+<a class="back-link" href="./index.html">&#8592; Volver al índice</a>
 <h1>
   <svg height="28" width="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
