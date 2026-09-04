@@ -30,6 +30,39 @@ from common import (
 
 PAGE_URL = "https://docs.github.com/es/copilot/reference/copilot-billing/models-and-pricing"
 
+# Referencias a notas al pie en las celdas: <a href="...#user-content-fn-xxx">[1]</a> (a veces dentro de <sup>)
+FN_LINK_RE = re.compile(r'<a\s[^>]*href="[^"]*user-content-fn[^"]*"[^>]*>[\s\S]*?</a>', re.IGNORECASE)
+FN_ID_RE = re.compile(r'user-content-fn(?:ref)?-([\w-]+)', re.IGNORECASE)
+SUP_RE = re.compile(r'<sup[^>]*>[\s\S]*?</sup>', re.IGNORECASE)
+# Palabras que indican que la nota al pie describe una promoción/descuento
+PROMO_RE = re.compile(r'descuento|promo|discount|rebaja|oferta|gratis|free|limited', re.IGNORECASE)
+
+
+def parse_name_cell(cell_html: str) -> tuple[str, list[str]]:
+    """
+    Limpia la celda de nombre eliminando las referencias a notas al pie
+    (p.ej. enlaces de descuento temporal) para que no queden pegadas al nombre.
+    Devuelve (nombre_limpio, ids_de_notas_referenciadas).
+    """
+    fn_ids = FN_ID_RE.findall(cell_html)
+    cleaned = FN_LINK_RE.sub('', cell_html)
+    cleaned = SUP_RE.sub('', cleaned)
+    return clean_text(cleaned), fn_ids
+
+
+def extract_footnotes(page_html: str) -> dict[str, str]:
+    """Extrae el texto de las notas al pie de la página (id -> texto limpio)."""
+    footnotes: dict[str, str] = {}
+    for fid, ftxt in re.findall(
+        r'<li[^>]*id="user-content-fn-([\w-]+)"[^>]*>([\s\S]*?)</li>',
+        page_html, re.IGNORECASE,
+    ):
+        # Eliminar los enlaces de retorno (↩) dentro de la propia nota
+        cleaned = FN_LINK_RE.sub('', ftxt)
+        cleaned = SUP_RE.sub('', cleaned)
+        footnotes[fid] = clean_text(cleaned)
+    return footnotes
+
 # Columnas de salida (sin proveedor: no es dinámico y no aporta valor)
 COLS = [
     ("name",             "Nombre"),
@@ -61,6 +94,7 @@ HEADER_GROUPS = [
 def load_copilot_models() -> list[dict]:
     """Descarga y parsea la página oficial de Copilot."""
     html = fetch_html(PAGE_URL)
+    footnotes = extract_footnotes(html)
 
     tables = re.findall(r'<table[\s\S]*?<\/table>', html, re.IGNORECASE)
     parsed: list[dict] = []
@@ -99,6 +133,7 @@ def load_copilot_models() -> list[dict]:
             if not tds:
                 continue
             obj: dict[str, str] = {}
+            promo = ''
             for j, cell in enumerate(tds):
                 hdr = headers[j] if j < len(headers) else f'col{j}'
                 key = None
@@ -108,7 +143,16 @@ def load_copilot_models() -> list[dict]:
                         break
                 if key is None:
                     key = hdr
-                obj[key] = clean_text(cell)
+                if key == 'name':
+                    # La celda nombre puede llevar referencias a notas al pie
+                    # (p.ej. descuento temporal): limpiar y capturar el texto.
+                    obj[key], fn_ids = parse_name_cell(cell)
+                    for fid in fn_ids:
+                        ftxt = footnotes.get(fid, '')
+                        if ftxt and (PROMO_RE.search(ftxt) or not promo):
+                            promo = ftxt
+                else:
+                    obj[key] = clean_text(cell)
 
             entry = {
                 'name': obj.get('name', obj.get('modelo', '')),
@@ -120,7 +164,8 @@ def load_copilot_models() -> list[dict]:
                 'priceEntry': obj.get('priceEntry', obj.get('precio entrada', obj.get('precio', ''))),
                 'priceEntryCache': obj.get('priceEntryCache', obj.get('entrada almacenada', '')),
                 'writeCache': obj.get('writeCache', obj.get('escritura en caché', '')),
-                'priceExit': obj.get('priceExit', obj.get('precio salida', ''))
+                'priceExit': obj.get('priceExit', obj.get('precio salida', '')),
+                'promo': promo,
             }
             # Ignorar filas sin nombre (ruido de tablas no relacionadas)
             if not entry['name']:
@@ -207,6 +252,7 @@ def clean_model(m: dict) -> dict:
 
     row['_isDeprecated'] = m.get('_isDeprecated', False)
     row['_supersededBy'] = m.get('_supersededBy', '')
+    row['_promo'] = m.get('promo', '')
     return row
 
 
@@ -260,6 +306,7 @@ def write_html(rows: list[dict], path: str) -> None:
   tbody tr.row-deprecated td:first-child { text-decoration: line-through; text-decoration-color: #f85149; text-decoration-thickness: 2px; }
   .tag-intel { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; background: #1f6feb22; color: #58a6ff; border: 1px solid #1f6feb44; }
   .tag-deprecated { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-weight: 600; background: #da363322; color: #f85149; border: 1px solid #da363366; text-decoration: none; vertical-align: middle; }
+  .tag-promo { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-weight: 600; background: #bb800922; color: #e3b341; border: 1px solid #bb800966; vertical-align: middle; cursor: help; }
   td.numeric, th.numeric { text-align: right; }
   .tag-status { padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
   .status-ga { background: #23863622; color: #3fb950; border: 1px solid #23863666; }
@@ -322,6 +369,10 @@ function cellValue(r, k) {
         let nameHtml = raw;
         if (r._isDeprecated) {
             nameHtml += ' <span class="tag-deprecated" title="Superado en prestaciones/precio por ' + (r._supersededBy || 'versión superior') + '">Superado por ' + (r._supersededBy || 'versión más reciente') + '</span>';
+        }
+        if (r._promo) {
+            const tip = String(r._promo).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+            nameHtml += ' <span class="tag-promo" title="' + tip + '">Promo</span>';
         }
         return nameHtml;
     }
