@@ -30,6 +30,12 @@ from common import (
 )
 
 PAGE_URL = "https://opencode.ai/docs/es/go/"
+# El banner de promociones no está en la doc, sino en la landing de Go.
+# Se prueban varias URLs por si el banner se mueve de ubicación.
+BANNER_URLS = [
+    "https://opencode.ai/go",
+    "https://opencode.ai/zen",
+]
 
 # Columnas finales (sin proveedor: heurístico no dinámico, se elimina)
 COLS = [
@@ -47,8 +53,7 @@ COLS = [
     ("retention",       "Retención"),
 ]
 
-HEADER_GROUPS = [
-    (None, [("name", "Modelo")]),
+HEADER_GROUPS = [    (None, [("name", "Modelo")]),
     (None, [("condition", "Condición")]),
     ("Precio ($/M)", [
         ("priceEntry", "Entrada"),
@@ -65,6 +70,29 @@ HEADER_GROUPS = [
     (None, [("modelId", "ID Modelo")]),
     (None, [("retention", "Retención")]),
 ]
+
+
+def fetch_promo_banners() -> list[str]:
+    """
+    Extrae el texto de TODOS los banners de anuncios
+    (data-component="desktop-app-banner") de las landings candidatas, p.ej.:
+    'New GLM-5.3-Flash gets 2× usage limits for a limited time'.
+    Devuelve [] si no hay banners en ninguna (no es crítico).
+    """
+    banners: list[str] = []
+    for url in BANNER_URLS:
+        try:
+            html = fetch_html(url)
+        except Exception:
+            continue
+        for m in re.finditer(r'data-component="desktop-app-banner"', html):
+            chunk = html[m.start():m.start() + 2000]
+            tm = re.search(r'data-slot="text"[^>]*>([\s\S]*?)</span>', chunk)
+            if tm:
+                text = clean_text(tm.group(1))
+                if text and text not in banners:
+                    banners.append(text)
+    return banners
 
 
 def load_opencode_go_models() -> list[dict]:
@@ -181,6 +209,24 @@ def load_opencode_go_models() -> list[dict]:
 
     resolve_transitive_superseded(results, direct_superseded)
 
+    # Promos: los banners de las landings anuncian ofertas tipo 'X gets 2x
+    # usage limits for a limited time'. Marcar los modelos que aparecen en ellos.
+    for banner in fetch_promo_banners():
+        # Comparar el nombre del modelo (normalizado) contra todos los
+        # n-gramas de palabras consecutivas del banner. Así 'GLM-5.3' no
+        # matchea dentro de 'GLM-5.3-Flash' (glm53 != glm53flash), pero
+        # nombres de varias palabras como 'Grok 4.6' (grok46) sí matchean.
+        words = banner.split()
+        banner_names = {
+            normalize_name(' '.join(words[i:i + size]))
+            for size in range(1, min(7, len(words) + 1))
+            for i in range(len(words) - size + 1)
+        }
+        for r in results:
+            if not r.get('_promo') and normalize_name(r['name']) in banner_names:
+                r['_promo'] = banner
+                print(f"Promo detectada para {r['name']}: {banner}")
+
     if not results:
         raise RuntimeError("No se pudieron parsear filas de precios de OpenCode Go")
 
@@ -197,6 +243,7 @@ def clean_row(m: dict) -> dict:
         row[label] = v
     row['_isDeprecated'] = m.get('_isDeprecated', False)
     row['_supersededBy'] = m.get('_supersededBy', '')
+    row['_promo'] = m.get('_promo', '')
     return row
 
 
@@ -236,6 +283,7 @@ def write_html(rows: list[dict], path: str) -> None:
   tbody tr.row-deprecated:hover { opacity: 0.85; background: #261f22; }
   tbody tr.row-deprecated td:first-child { text-decoration: line-through; text-decoration-color: #f85149; text-decoration-thickness: 2px; }
   .tag-deprecated { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-weight: 600; background: #da363322; color: #f85149; border: 1px solid #da363366; text-decoration: none; vertical-align: middle; }
+  .tag-promo { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-weight: 600; background: #bb800922; color: #e3b341; border: 1px solid #bb800966; vertical-align: middle; cursor: help; }
   td.numeric, th.numeric { text-align: right; }
   .tag-budget { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; background: #23863622; color: #3fb950; border: 1px solid #23863666; }
   .tag-code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 11px; background: #161b22; padding: 2px 5px; border-radius: 4px; border: 1px solid #30363d; color: #79c0ff; }
@@ -287,6 +335,10 @@ function cellValue(r, k) {
         let nameHtml = raw;
         if (r._isDeprecated) {
             nameHtml += ' <span class="tag-deprecated" title="Superado en prestaciones/precio por ' + (r._supersededBy || 'versión superior') + '">Superado por ' + (r._supersededBy || 'versión más reciente') + '</span>';
+        }
+        if (r._promo) {
+            const tip = String(r._promo).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+            nameHtml += ' <span class="tag-promo" title="' + tip + '">Promo</span>';
         }
         return nameHtml;
     }
