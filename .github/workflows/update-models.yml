@@ -1,0 +1,57 @@
+name: Actualizar modelos
+
+on:
+  schedule:
+    # 03:00 UTC = 04:00 CET / 05:00 CEST — todas las noches
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
+  push:
+    branches: [main, master]
+    paths:
+      - "gen-*.py"
+      - "common.py"
+      - ".github/workflows/update-models.yml"
+
+permissions:
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generar HTML en public/
+        run: |
+          python gen-copilot-models.py --out public
+          python gen-opencode-go-models.py --out public
+          ls -lh public/
+
+      - name: Configurar Pages
+        uses: actions/configure-pages@v5
+
+      - name: Subir artefacto
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar en GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
