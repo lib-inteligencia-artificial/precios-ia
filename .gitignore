@@ -3,4 +3,5 @@ __pycache__/
 *.pyo
 public/
 *.html
+!/index.html
 !.github/
