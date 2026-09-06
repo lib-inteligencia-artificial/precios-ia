@@ -2,8 +2,9 @@ name: Actualizar modelos
 
 on:
   schedule:
-    # 03:00 UTC = 04:00 CET / 05:00 CEST — todas las noches
-    - cron: "0 3 * * *"
+    # 04:19 UTC = 06:19 CEST (05:19 CET en invierno) — minuto poco usado
+    # para evitar los retrasos de GitHub Actions en horas/minutos en punto.
+    - cron: "19 4 * * *"
   workflow_dispatch: {}
   push:
     branches: [main, master]
