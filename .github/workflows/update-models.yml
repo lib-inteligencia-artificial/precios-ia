@@ -2,9 +2,7 @@ name: Actualizar modelos
 
 on:
   schedule:
-    # 04:19 UTC = 06:19 CEST (05:19 CET en invierno) — minuto poco usado
-    # para evitar los retrasos de GitHub Actions en horas/minutos en punto.
-    - cron: "19 4 * * *"
+    - cron: "19 2 * * *"
   workflow_dispatch: {}
   push:
     branches: [main, master]
