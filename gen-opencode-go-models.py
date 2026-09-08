@@ -18,6 +18,7 @@ import json
 import os
 import re
 import sys
+from datetime import datetime
 
 from common import (
     build_header_cells,
@@ -306,7 +307,7 @@ def write_html(rows: list[dict], path: str) -> None:
   <span class="badge-price">$10 / mes (hasta $60 en uso)</span>
 </h1>
 <p class="muted">Datos referenciados desde la documentación oficial de <a href="%%PAGE_URL%%" target="_blank">%%PAGE_URL%%</a>.
-Incluye límites de uso (5h: $12, semanal: $30, mensual: $60) y estimación de peticiones.</p>
+<br>Actualizado: %%UPDATED%%.<br>Incluye límites de uso (5h: $12, semanal: $30, mensual: $60) y estimación de peticiones.</p>
 <div class="toolbar">
   <input type="search" id="filter" placeholder="Filtrar modelos de OpenCode Go...">
   <span class="muted" id="count"></span>
@@ -410,6 +411,7 @@ window.addEventListener('resize', fixSticky);
 """
     html = html.replace('%%HEADER_CELLS%%', header_cells)
     html = html.replace('%%PAGE_URL%%', PAGE_URL)
+    html = html.replace('%%UPDATED%%', datetime.now().strftime('%d/%m/%Y %H:%M'))
     html = html.replace('%%DATA%%', data)
     html = html.replace('%%HEADERS%%', json.dumps(headers, ensure_ascii=False))
     with open(path, "w", encoding="utf-8") as f:

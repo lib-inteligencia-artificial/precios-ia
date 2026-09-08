@@ -20,6 +20,7 @@ import json
 import os
 import re
 import sys
+from datetime import datetime
 
 from common import (
     build_header_cells,
@@ -237,7 +238,7 @@ def write_html(rows: list[dict], path: str) -> None:
   <span class="badge-cursor">Cursor</span>
 </h1>
 <p class="muted">Datos referenciados desde la documentación oficial de <a href="%%PAGE_URL%%" target="_blank">%%PAGE_URL%%</a>.
-Haz clic en cualquier columna para ordenar. Filtra libremente por nombre, proveedor o notas.</p>
+<br>Actualizado: %%UPDATED%%.<br>Haz clic en cualquier columna para ordenar. Filtra libremente por nombre, proveedor o notas.</p>
 <div class="toolbar">
   <input type="search" id="filter" placeholder="Filtrar modelos de Cursor...">
   <span class="muted" id="count"></span>
@@ -343,6 +344,7 @@ window.addEventListener('resize', fixSticky);
 """
     html = html.replace('%%HEADER_CELLS%%', header_cells)
     html = html.replace('%%PAGE_URL%%', PAGE_URL)
+    html = html.replace('%%UPDATED%%', datetime.now().strftime('%d/%m/%Y %H:%M'))
     html = html.replace('%%DATA%%', data)
     html = html.replace('%%HEADERS%%', json.dumps(headers, ensure_ascii=False))
     with open(path, "w", encoding="utf-8") as f:

@@ -18,6 +18,7 @@ import json
 import os
 import re
 import sys
+from datetime import datetime
 
 from common import (
     build_header_cells,
@@ -329,7 +330,7 @@ def write_html(rows: list[dict], path: str) -> None:
   <span class="badge-copilot">GitHub Copilot</span>
 </h1>
 <p class="muted">Datos referenciados desde la documentación oficial de <a href="%%PAGE_URL%%" target="_blank">%%PAGE_URL%%</a>.
-Haz clic en cualquier columna para ordenar. Filtra libremente por nombre o capacidades.</p>
+<br>Actualizado: %%UPDATED%%.<br>Haz clic en cualquier columna para ordenar. Filtra libremente por nombre o capacidades.</p>
 <div class="toolbar">
   <input type="search" id="filter" placeholder="Filtrar modelos de Copilot...">
   <label class="switch" id="unitSwitchWrap" title="1 AI credit = $0.01 USD (oficial). Alterna entre dólares y créditos.">
@@ -464,6 +465,7 @@ window.addEventListener('resize', fixSticky);
 """
     html = html.replace('%%HEADER_CELLS%%', header_cells)
     html = html.replace('%%PAGE_URL%%', PAGE_URL)
+    html = html.replace('%%UPDATED%%', datetime.now().strftime('%d/%m/%Y %H:%M'))
     html = html.replace('%%DATA%%', data)
     html = html.replace('%%HEADERS%%', json.dumps(headers, ensure_ascii=False))
     with open(path, "w", encoding="utf-8") as f:
