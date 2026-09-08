@@ -42,6 +42,7 @@ COLS = [
     ("priceCacheWrite", "Escritura Caché ($/M)"),
     ("priceCacheRead", "Lectura Caché ($/M)"),
     ("priceExit", "Salida ($/M)"),
+    ("hidden", "Oculto"),
     ("notes", "Notas"),
 ]
 
@@ -55,6 +56,7 @@ HEADER_GROUPS = [
         ("priceCacheRead", "Lectura Caché"),
         ("priceExit", "Salida"),
     ]),
+    (None, [("hidden", "Oculto")]),
     (None, [("notes", "Notas")]),
 ]
 
@@ -91,6 +93,11 @@ def parse_md_tables(md: str) -> list[dict]:
                 if name and current_pool in ('Cursor', 'Otros'):
                     notes = row.get('notes', '')
                     promo = notes if PROMO_RE.search(notes) else ''
+                    # Extract "Hidden by default" flag and clean from notes
+                    hidden = 'hidden by default' in notes.lower()
+                    notes = re.sub(r'Hidden by default;?\s*', '', notes).strip()
+                    if notes == '-':
+                        notes = ''
                     models.append({
                         'pool': current_pool,
                         'name': name,
@@ -101,6 +108,7 @@ def parse_md_tables(md: str) -> list[dict]:
                         'priceExit': row.get('output', ''),
                         'notes': notes,
                         'promo': promo,
+                        '_hidden': hidden,
                     })
                 i += 1
             continue
@@ -165,6 +173,7 @@ def clean_model(m: dict) -> dict:
     row['_isDeprecated'] = m.get('_isDeprecated', False)
     row['_supersededBy'] = m.get('_supersededBy', '')
     row['_promo'] = m.get('promo', '')
+    row['_hidden'] = m.get('_hidden', False)
     return row
 
 
@@ -264,6 +273,9 @@ function cellValue(r, k) {
     if (k === 'Pool') {
         const cls = raw === 'Cursor' ? 'pool-cursor' : 'pool-otros';
         return '<span class="tag-pool ' + cls + '">' + raw + '</span>';
+    }
+    if (k === 'Oculto') {
+        return r._hidden ? '<span style="color:#58a6ff;font-size:15px" title="Hidden by default">☑</span>' : '<span style="color:#30363d;font-size:15px">☐</span>';
     }
     if (k === 'Notas') {
         if (!raw || raw === '-') return '<span class="muted">-</span>';
