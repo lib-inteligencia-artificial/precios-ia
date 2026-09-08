@@ -35,6 +35,7 @@ jobs:
           python gen-copilot-models.py --out public
           python gen-opencode-go-models.py --out public
           python gen-cursor-models.py --out public
+          python gen-google-models.py --out public
           cp index.html public/index.html
           ls -lh public/
 
