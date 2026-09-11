@@ -294,6 +294,15 @@ def write_html(rows: list[dict], path: str) -> None:
   .back-link { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px; font-size: 13px;
                color: #8b949e; padding: 5px 12px; border: 1px solid #30363d; border-radius: 6px; background: #161b22; }
   .back-link:hover { border-color: #58a6ff; color: #58a6ff; text-decoration: none; }
+  .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+            font-size: 13px; color: #c9d1d9; }
+  .switch input { display: none; }
+  .switch .track { width: 40px; height: 22px; background: #30363d; border-radius: 11px; position: relative;
+                   transition: background .2s; flex-shrink: 0; }
+  .switch .track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+                          background: #f0f6fc; border-radius: 50%; transition: transform .2s; }
+  .switch input:checked + .track { background: #238636; }
+  .switch input:checked + .track::after { transform: translateX(18px); }
 </style>
 </head>
 <body>
@@ -310,6 +319,11 @@ def write_html(rows: list[dict], path: str) -> None:
 <br>Actualizado: %%UPDATED%%.<br>Incluye límites de uso (5h: $12, semanal: $30, mensual: $60) y estimación de peticiones.</p>
 <div class="toolbar">
   <input type="search" id="filter" placeholder="Filtrar modelos de OpenCode Go...">
+  <label class="switch" title="Mostrar solo modelos con límite mensual ≥ $60">
+    <input type="checkbox" id="budgetSwitch">
+    <span class="track"></span>
+    <span style="font-size:13px">≥ $60/mes</span>
+  </label>
   <span class="muted" id="count"></span>
 </div>
 <div class="table-wrap">
@@ -324,6 +338,7 @@ const HEADERS = %%HEADERS%%;
 let sortKey = 'Modelo';
 let sortAsc = true;
 let filterText = '';
+let budgetFilter = false;
 
 const numericCols = [
     'Entrada ($/M)', 'Entrada Caché ($/M)', 'Escritura Caché ($/M)', 'Salida ($/M)',
@@ -374,6 +389,13 @@ function compareRows(a, b) {
 function render() {
     const tbody = document.querySelector('#tbl tbody');
     let rows = DATA.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(filterText)));
+    if (budgetFilter) {
+        rows = rows.filter(r => {
+            const raw = r['Límite Mensual Incluido'] || '';
+            const num = parseFloat(String(raw).replace(/,/g, '').replace(/[^0-9.]/g, '')) || 0;
+            return num >= 60;
+        });
+    }
     rows.sort(compareRows);
     document.querySelector('#count').textContent = rows.length + ' modelos / variantes encontrados';
     tbody.innerHTML = rows.map(r => '<tr class="' + (r._isDeprecated ? 'row-deprecated' : '') + '">' + HEADERS.map(k => '<td>' + cellValue(r, k) + '</td>').join('') + '</tr>').join('');
@@ -401,6 +423,8 @@ document.querySelectorAll('thead th[data-k]').forEach(th => th.addEventListener(
 }));
 
 document.querySelector('#filter').addEventListener('input', e => { filterText = e.target.value.trim().toLowerCase(); render(); });
+
+document.querySelector('#budgetSwitch').addEventListener('change', e => { budgetFilter = e.target.checked; render(); });
 
 render();
 fixSticky();
